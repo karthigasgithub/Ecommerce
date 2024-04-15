@@ -3,7 +3,7 @@ const app = express();
 const mysql = require('mysql');
 const port = 3000;
 const { Client } = require('@elastic/elasticsearch');
-const client = new Client({ node: 'http://localhost:9200' });
+const client = new Client({ node: 'http://localhost:9200/' });
 
 
 const db = mysql.createConnection({
@@ -89,10 +89,9 @@ app.get('/category',(req,res)=>{
           }
         res.json({ products, page, pageSize, totalPages ,categories});
       });
-
-
     });
-  });});
+  });
+});
   app.get('/all-products',(req,res)=>{
     res.sendFile(__dirname+"/products.html");  }
   );
@@ -105,6 +104,7 @@ app.get('/product-json/:categoryId', (req, res) => {
   const pageSize = 8;
   const offset = (page - 1) * pageSize;
 
+  const categoryname=`SELECT cname from category where cid=${categoryId}`;
   const queryCount = `SELECT COUNT(*) AS totalCount FROM product WHERE cid = ${categoryId}`;
   const queryProducts = `SELECT * FROM product WHERE cid = ${categoryId} LIMIT ${offset}, ${pageSize}`;
 
@@ -133,11 +133,15 @@ app.get('/product-json/:categoryId', (req, res) => {
           return;
         }
 
+       db.query(categoryname,(err,cname)=>{
+        if (err) {
+          console.error('Error querying categories:', err);
+          res.status(500).send('Internal Server Error');
+          return;
+        }
         const totalPages=Math.ceil(totalCount/pageSize);
-
-        // Render the EJS template with products data
-        res.json({ products, categoryId, page, pageSize, totalCount, totalPages, categories });
-
+        res.json({ products, categoryId, page, pageSize, totalCount, totalPages, categories,cname });
+       }) ;
       });
     });
   });
@@ -223,9 +227,9 @@ app.get("/search-json", async (req, res) => {
     });
     if (body && body.hits) { // Check if hits exist and total hits count is greater than 0
       let data = body.hits.hits;
+      console.log(body.hits,body);
       let results = data.map(hit => hit._source);
-      let totalPages = Math.ceil(results.length / 5); // Assuming 10 results per page
-      res.json({ results, query:req.query.query });
+      res.json({ results });
     }
   } catch (error) {
     console.error("Error executing Elasticsearch query:", error);
